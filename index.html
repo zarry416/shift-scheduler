@@ -46,10 +46,10 @@
       align-items: center;
       gap: 12px;
     }
-    .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .page-heading { font-size: 1.15rem; font-weight: 700; color: var(--cv-text-white); }
     
-    select, input[type="text"], input[type="number"] {
+    select, input[type="text"], input[type="number"], input[type="date"] {
       background: var(--cv-panel);
       color: var(--cv-text-white);
       border: 1px solid var(--cv-border);
@@ -58,6 +58,17 @@
       font-size: 0.85rem;
       outline: none;
     }
+
+    .btn-icon-tiny {
+      background: #21262d;
+      border: 1px solid var(--cv-border);
+      color: var(--cv-text-muted);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .btn-icon-tiny:hover { color: #fff; background: #30363d; }
 
     .sync-status {
       font-size: 0.72rem;
@@ -93,8 +104,8 @@
     .cv-main-layout { display: flex; flex: 1; overflow: hidden; }
 
     .cv-sidebar {
-      width: 330px;
-      min-width: 300px;
+      width: 340px;
+      min-width: 310px;
       background: var(--cv-panel);
       border-right: 1px solid var(--cv-border);
       display: flex;
@@ -117,7 +128,39 @@
       letter-spacing: 0.05em;
     }
 
-    /* Deadlines Card */
+    .cycle-mgr-card {
+      background: var(--cv-bg);
+      border: 1px solid var(--cv-border);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.72rem;
+    }
+    .cycle-mgr-list {
+      max-height: 130px;
+      overflow-y: auto;
+      border: 1px solid var(--cv-border-light);
+      border-radius: 4px;
+      padding: 4px;
+      background: #11151c;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .cycle-mgr-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 5px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+    }
+    .cycle-mgr-item:hover { background: #1f242c; }
+    .cycle-mgr-item.is-hidden { opacity: 0.45; }
+    .cycle-mgr-actions { display: flex; gap: 4px; align-items: center; }
+
     .deadline-card {
       background: var(--cv-bg);
       border: 1px solid #1f6feb;
@@ -164,7 +207,6 @@
     }
     .btn-ics-deadline:hover { background: #30363d; color: #fff; }
 
-    /* Selection Tool Grid */
     .paint-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -216,7 +258,6 @@
     }
     .btn-generator:hover { background: #1d4ed8; }
 
-    /* Pay Period & Differential Estimator */
     .pay-card {
       background: var(--cv-bg);
       border: 1px solid var(--cv-border);
@@ -241,7 +282,8 @@
       padding: 6px;
       margin-top: 2px;
     }
-    .pay-period-title { font-weight: 700; color: #58a6ff; margin-bottom: 4px; font-size: 0.7rem; }
+    .pay-period-title { font-weight: 700; color: #58a6ff; margin-bottom: 2px; font-size: 0.7rem; }
+    .pay-period-sub { font-size: 0.64rem; color: #e3b341; margin-bottom: 5px; font-weight: 600; }
     .pay-metrics-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -251,7 +293,7 @@
     .pay-metrics-grid span { color: var(--cv-text-muted); }
     .pay-metrics-grid strong { color: var(--cv-text-white); text-align: right; }
     .pay-total-row {
-      margin-top: 4px;
+      margin-top: 5px;
       padding-top: 4px;
       border-top: 1px dashed var(--cv-border);
       display: flex;
@@ -404,6 +446,17 @@
       line-height: 1.15;
     }
 
+    .payday-badge {
+      display: inline-block;
+      background: rgba(210, 153, 34, 0.2);
+      border: 1px solid #d29922;
+      color: #e3b341;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
     .cal-cell.status-BLOCK {
       background: rgba(239, 68, 68, 0.08);
       background-image: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.15) 10px, transparent 10px, transparent 20px);
@@ -459,6 +512,7 @@
     <div class="toolbar-left">
       <span class="page-heading">Shift Planner</span>
       <select id="cycleSelect"></select>
+      <button class="btn-icon-tiny" id="btnToggleCycleDrawer" title="Manage Schedule Cycles">⚙️ Cycles</button>
       <div class="sync-status"><span class="sync-dot" id="syncDot"></span> <span id="syncText">Ready</span></div>
     </div>
     <div class="toolbar-stats">
@@ -478,7 +532,23 @@
     
     <aside class="cv-sidebar">
 
-      <!-- Feature #4: Clairvia Deadlines & Calendar Reminders -->
+      <div class="cycle-mgr-card" id="cycleMgrCard" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="side-title" style="margin-bottom: 0; color: #58a6ff;">Manage 6-Week Cycles</span>
+          <button class="plan-btn-small" id="btnCloseCycleMgr">&times; Close</button>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 4px; background: #11151c; padding: 6px; border-radius: 4px; border: 1px solid var(--cv-border-light);">
+          <span style="font-size: 0.66rem; color: var(--cv-text-muted);">Add New 6-Week Cycle (Starts on a Sunday):</span>
+          <div style="display: flex; gap: 4px;">
+            <input type="date" id="newCycleStartDate" style="flex: 1; font-size: 0.72rem; padding: 3px 6px;">
+            <button class="cv-btn primary" id="btnAddCycle" style="flex: 0 0 auto; padding: 3px 8px;">+ Add</button>
+          </div>
+        </div>
+
+        <div class="cycle-mgr-list" id="cycleMgrList"></div>
+      </div>
+
       <div class="deadline-card">
         <div class="deadline-header">
           <span>Clairvia Window</span>
@@ -499,7 +569,6 @@
         <button class="btn-ics-deadline" id="btnExportDeadlines">📅 Add Deadlines to Apple Calendar</button>
       </div>
       
-      <!-- Selection Tool -->
       <div>
         <div class="side-title">Selection Tool</div>
         <div class="paint-grid">
@@ -523,9 +592,8 @@
         </p>
       </div>
 
-      <!-- Feature #5: Biweekly Pay Period & Differential Estimator -->
       <div class="pay-card">
-        <div class="side-title" style="margin-bottom: 2px; color: #58a6ff;">Pay & Differential Estimator</div>
+        <div class="side-title" style="margin-bottom: 2px; color: #58a6ff;">Biweekly Payroll Estimator</div>
         <div class="pay-rates-row">
           <div class="pay-input-wrap">
             <label>Base Rate ($/hr)</label>
@@ -540,28 +608,31 @@
             <input type="number" id="rateWkndDiff" value="4.00" step="0.25">
           </div>
           <div class="pay-input-wrap">
-            <label>View Period</label>
+            <label>Pay Period</label>
             <select id="payPeriodSelect" style="width: 100%; font-size: 0.72rem; padding: 2px 4px;">
-              <option value="all">Full 6-Wk Total</option>
-              <option value="pp1">Pay Period 1 (Wk 1-2)</option>
-              <option value="pp2">Pay Period 2 (Wk 3-4)</option>
-              <option value="pp3">Pay Period 3 (Wk 5-6)</option>
+              <option value="all">Full 6-Wk Cycle</option>
+              <option value="pp1">Pay Period 1</option>
+              <option value="pp2">Pay Period 2</option>
+              <option value="pp3">Pay Period 3</option>
             </select>
           </div>
         </div>
         
         <div class="pay-period-box">
           <div class="pay-period-title" id="payPeriodHeader">Full 6-Week Breakdown</div>
+          <div class="pay-period-sub" id="payPeriodSubDate">3 Biweekly Pay Periods (Sun-Sat)</div>
           <div class="pay-metrics-grid">
             <span>Reg / OT Hours:</span>
             <strong id="payRegOt">0h / 0h</strong>
+            <span>Holiday (1.5x) Hrs:</span>
+            <strong id="payHolidayHours">0h ($0)</strong>
             <span>Night Diff Hours:</span>
-            <strong id="payNightHours">0h</strong>
+            <strong id="payNightHours">0h ($0)</strong>
             <span>Weekend Diff Hours:</span>
-            <strong id="payWkndHours">0h</strong>
+            <strong id="payWkndHours">0h ($0)</strong>
             <span>Est. Base Pay:</span>
             <strong id="payBaseSum">$0</strong>
-            <span>Diffs & OT Pay:</span>
+            <span>Diffs / Prem Pay:</span>
             <strong id="payDiffSum">$0</strong>
           </div>
           <div class="pay-total-row">
@@ -616,61 +687,154 @@
       const JSONBIN_BIN_ID = "";
       const JSONBIN_API_KEY = "";
 
-      // Exact Cycle Schedules and Clairvia Self-Scheduling Deadlines
-      const CYCLES = [
-        { label: "11/15/2026 – 12/26/2026", start: "2026-11-15", end: "2026-12-26", opens: "2026-09-20", closes: "2026-10-11", published: "2026-10-25" },
-        { label: "12/27/2026 – 02/06/2027", start: "2026-12-27", end: "2027-02-06", opens: "2026-11-01", closes: "2026-11-22", published: "2026-12-06" },
-        { label: "02/07/2027 – 03/20/2027", start: "2027-02-07", end: "2027-03-20", opens: "2026-12-13", closes: "2027-01-03", published: "2027-01-17" },
-        { label: "03/21/2027 – 05/01/2027", start: "2027-03-21", end: "2027-05-01", opens: "2027-01-24", closes: "2027-02-14", published: "2027-02-28" },
-        { label: "05/02/2027 – 06/12/2027", start: "2027-05-02", end: "2027-06-12", opens: "2027-03-07", closes: "2027-03-28", published: "2027-04-11" },
-        { label: "06/13/2027 – 07/24/2027", start: "2027-06-13", end: "2027-07-24", opens: "2027-04-18", closes: "2027-05-09", published: "2027-05-23" },
-        { label: "07/25/2027 – 09/04/2027", start: "2027-07-25", end: "2027-09-04", opens: "2027-05-30", closes: "2027-06-20", published: "2027-07-04" },
-        { label: "09/05/2027 – 10/16/2027", start: "2027-09-05", end: "2027-10-16", opens: "2027-07-11", closes: "2027-08-01", published: "2027-08-15" },
-        { label: "10/17/2027 – 11/27/2027", start: "2027-10-17", end: "2027-11-27", opens: "2027-08-22", closes: "2027-09-12", published: "2027-09-26" },
-        { label: "11/28/2027 – 01/08/2028", start: "2027-11-28", end: "2028-01-08", opens: "2027-10-03", closes: "2027-10-24", published: "2027-11-07" }
+      const DEFAULT_CYCLES = [
+        { id: "c1", label: "11/15/2026 – 12/26/2026", start: "2026-11-15", end: "2026-12-26", opens: "2026-09-20", closes: "2026-10-11", published: "2026-10-25", hidden: false },
+        { id: "c2", label: "12/27/2026 – 02/06/2027", start: "2026-12-27", end: "2027-02-06", opens: "2026-11-01", closes: "2026-11-22", published: "2026-12-06", hidden: false },
+        { id: "c3", label: "02/07/2027 – 03/20/2027", start: "2027-02-07", end: "2027-03-20", opens: "2026-12-13", closes: "2027-01-03", published: "2027-01-17", hidden: false },
+        { id: "c4", label: "03/21/2027 – 05/01/2027", start: "2027-03-21", end: "2027-05-01", opens: "2027-01-24", closes: "2027-02-14", published: "2027-02-28", hidden: false },
+        { id: "c5", label: "05/02/2027 – 06/12/2027", start: "2027-05-02", end: "2027-06-12", opens: "2027-03-07", closes: "2027-03-28", published: "2027-04-11", hidden: false },
+        { id: "c6", label: "06/13/2027 – 07/24/2027", start: "2027-06-13", end: "2027-07-24", opens: "2027-04-18", closes: "2027-05-09", published: "2027-05-23", hidden: false },
+        { id: "c7", label: "07/25/2027 – 09/04/2027", start: "2027-07-25", end: "2027-09-04", opens: "2027-05-30", closes: "2027-06-20", published: "2027-07-04", hidden: false },
+        { id: "c8", label: "09/05/2027 – 10/16/2027", start: "2027-09-05", end: "2027-10-16", opens: "2027-07-11", closes: "2027-08-01", published: "2027-08-15", hidden: false },
+        { id: "c9", label: "10/17/2027 – 11/27/2027", start: "2027-10-17", end: "2027-11-27", opens: "2027-08-22", closes: "2027-09-12", published: "2027-09-26", hidden: false },
+        { id: "c10", label: "11/28/2027 – 01/08/2028", start: "2027-11-28", end: "2028-01-08", opens: "2027-10-03", closes: "2027-10-24", published: "2027-11-07", hidden: false }
       ];
 
       const HOLIDAYS = {
+        "2026-01-01": "New Year's Day",
+        "2026-01-19": "MLK Jr. Day",
+        "2026-05-25": "Memorial Day",
+        "2026-06-19": "Juneteenth",
+        "2026-07-03": "Independence Day (Obs.)",
+        "2026-09-07": "Labor Day",
         "2026-11-26": "Thanksgiving Day",
-        "2026-11-27": "Day After Thanks.",
-        "2026-12-24": "Christmas Eve",
         "2026-12-25": "Christmas Day",
-        "2026-12-31": "New Year's Eve",
         "2027-01-01": "New Year's Day",
         "2027-01-18": "MLK Jr. Day",
-        "2027-02-15": "Presidents' Day",
         "2027-05-31": "Memorial Day",
-        "2027-06-19": "Juneteenth",
-        "2027-07-04": "Independence Day",
-        "2027-07-05": "4th of July (Obs.)",
+        "2027-06-18": "Juneteenth (Obs.)",
+        "2027-07-05": "Independence Day (Obs.)",
         "2027-09-06": "Labor Day",
-        "2027-10-11": "Indigenous Peoples Day",
-        "2027-11-11": "Veterans Day",
         "2027-11-25": "Thanksgiving Day",
-        "2027-11-26": "Day After Thanks.",
-        "2027-12-24": "Christmas Eve",
-        "2027-12-25": "Christmas Day",
-        "2027-12-31": "New Year's Eve",
-        "2028-01-01": "New Year's Day"
+        "2027-12-24": "Christmas Day (Obs.)",
+        "2027-12-31": "New Year's Day (Obs.)",
+        "2028-01-01": "New Year's Day",
+        "2028-01-17": "MLK Jr. Day"
       };
 
-      const STORAGE_KEY = "shift_planner_saved_v18";
-      const PLANS_KEY = "shift_planner_custom_plans_v18";
+      const ANCHOR_PAYDAY = new Date(Date.UTC(2026, 0, 9));
+      const MS_IN_DAY = 86400000;
+      const MS_IN_BIWEEK = 14 * MS_IN_DAY;
+
+      function isBiweeklyPayDate(d) {
+        const utcDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const diffMs = utcDate.getTime() - ANCHOR_PAYDAY.getTime();
+        const dateStr = formatYMD(d);
+        if (dateStr === "2026-12-24") return true;
+        if (dateStr === "2026-12-25") return false;
+        return (diffMs % MS_IN_BIWEEK === 0);
+      }
+
+      function getPayDateForPeriodEnd(periodEndDate) {
+        const payD = new Date(periodEndDate.getTime() + (6 * MS_IN_DAY));
+        const dateStr = formatYMD(payD);
+        if (dateStr === "2026-12-25") return "2026-12-24 (Bank Hol. Early Pay)";
+        return dateStr;
+      }
+
+      // PERMANENT UNVERSIONED STORAGE KEYS (Will never change on updates)
+      const SHIFTS_KEY = "shift_planner_shifts";
+      const PLANS_KEY = "shift_planner_plans";
+      const CYCLES_KEY = "shift_planner_cycles";
 
       let shiftData = {};
       let customPlans = [];
+      let allCycles = [];
 
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) shiftData = JSON.parse(stored);
-        const plans = localStorage.getItem(PLANS_KEY);
-        if (plans) customPlans = JSON.parse(plans);
-      } catch (e) {
-        shiftData = {};
-        customPlans = [];
+      // AUTOMATIC DATA MIGRATION: Checks all legacy lockers and restores your data
+      function recoverAllPastData() {
+        const legacyKeys = [
+          "shift_planner_saved_v22", "shift_planner_saved_v21", "shift_planner_saved_v20",
+          "shift_planner_saved_v19", "shift_planner_saved_v18", "shift_planner_saved_v17",
+          "shift_planner_saved_v16", "shift_planner_saved_v15", "shift_planner_saved_v14",
+          "shift_planner_saved_v13", "shift_planner_saved_v12", "shift_planner_saved_v11",
+          "shift_planner_saved_v10", "shift_planner_saved_v9", "shift_planner_saved_v8",
+          "shift_planner_saved_v7"
+        ];
+        const legacyPlanKeys = [
+          "shift_planner_custom_plans_v22", "shift_planner_custom_plans_v21", "shift_planner_custom_plans_v20",
+          "shift_planner_custom_plans_v19", "shift_planner_custom_plans_v18", "shift_planner_custom_plans_v17",
+          "shift_planner_custom_plans_v16", "shift_planner_custom_plans_v15", "shift_planner_custom_plans_v14",
+          "shift_planner_custom_plans_v13", "shift_planner_custom_plans_v12", "shift_planner_custom_plans_v11",
+          "shift_planner_custom_plans_v10", "shift_planner_custom_plans_v9", "shift_planner_custom_plans_v8",
+          "shift_planner_custom_plans_v7"
+        ];
+
+        // 1. Recover Shifts
+        let existingShifts = localStorage.getItem(SHIFTS_KEY);
+        if (existingShifts) {
+          try { shiftData = JSON.parse(existingShifts); } catch(e) {}
+        }
+        if (Object.keys(shiftData).length === 0) {
+          for (const key of legacyKeys) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed && Object.keys(parsed).length > 0) {
+                  shiftData = { ...parsed, ...shiftData };
+                }
+              } catch(e) {}
+            }
+          }
+          if (Object.keys(shiftData).length > 0) {
+            localStorage.setItem(SHIFTS_KEY, JSON.stringify(shiftData));
+          }
+        }
+
+        // 2. Recover Plans
+        let existingPlans = localStorage.getItem(PLANS_KEY);
+        if (existingPlans) {
+          try { customPlans = JSON.parse(existingPlans); } catch(e) {}
+        }
+        if (customPlans.length === 0) {
+          for (const key of legacyPlanKeys) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  customPlans = parsed;
+                  break;
+                }
+              } catch(e) {}
+            }
+          }
+          if (customPlans.length > 0) {
+            localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans));
+          }
+        }
+
+        // 3. Recover Cycles
+        let existingCycles = localStorage.getItem(CYCLES_KEY);
+        if (existingCycles) {
+          try { allCycles = JSON.parse(existingCycles); } catch(e) {}
+        }
+        if (!allCycles || allCycles.length === 0) {
+          const rawV22 = localStorage.getItem("shift_planner_cycles_v22");
+          if (rawV22) {
+            try { allCycles = JSON.parse(rawV22); } catch(e) {}
+          }
+        }
+        if (!allCycles || allCycles.length === 0) {
+          allCycles = JSON.parse(JSON.stringify(DEFAULT_CYCLES));
+          localStorage.setItem(CYCLES_KEY, JSON.stringify(allCycles));
+        }
       }
 
-      let currentCycleIdx = 0;
+      recoverAllPastData();
+
+      let currentCycleId = allCycles.find(c => !c.hidden)?.id || allCycles[0].id;
       let activeTool = "DAY";
       let saveTimer = null;
 
@@ -678,22 +842,148 @@
       const matrixEl = document.getElementById("calendarMatrix");
       const plansListEl = document.getElementById("plansList");
       const cycleBadgeIndicator = document.getElementById("cycleBadgeIndicator");
+      const cycleMgrCard = document.getElementById("cycleMgrCard");
+      const cycleMgrList = document.getElementById("cycleMgrList");
       const syncDot = document.getElementById("syncDot");
       const syncText = document.getElementById("syncText");
 
-      CYCLES.forEach((c, idx) => {
-        const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = c.label;
-        cycleSelect.appendChild(opt);
-      });
+      function getActiveCycle() {
+        return allCycles.find(c => c.id === currentCycleId) || allCycles[0];
+      }
+
+      function populateCycleDropdown() {
+        cycleSelect.innerHTML = "";
+        const visibleCycles = allCycles.filter(c => !c.hidden);
+        if (visibleCycles.length === 0 && allCycles.length > 0) {
+          allCycles[0].hidden = false;
+        }
+
+        allCycles.forEach((c) => {
+          if (!c.hidden) {
+            const opt = document.createElement("option");
+            opt.value = c.id;
+            opt.textContent = c.label;
+            cycleSelect.appendChild(opt);
+          }
+        });
+
+        if (!allCycles.find(c => c.id === currentCycleId && !c.hidden)) {
+          currentCycleId = allCycles.find(c => !c.hidden)?.id || allCycles[0].id;
+        }
+        cycleSelect.value = currentCycleId;
+      }
 
       cycleSelect.addEventListener("change", function(e) {
-        currentCycleIdx = parseInt(e.target.value, 10);
+        currentCycleId = e.target.value;
         render();
         renderPlans();
         renderDeadlines();
       });
+
+      document.getElementById("btnToggleCycleDrawer").onclick = function() {
+        cycleMgrCard.style.display = cycleMgrCard.style.display === "none" ? "flex" : "none";
+        renderCycleManager();
+      };
+      document.getElementById("btnCloseCycleMgr").onclick = function() {
+        cycleMgrCard.style.display = "none";
+      };
+
+      function renderCycleManager() {
+        cycleMgrList.innerHTML = "";
+        allCycles.forEach((c) => {
+          const item = document.createElement("div");
+          item.className = `cycle-mgr-item ${c.hidden ? 'is-hidden' : ''}`;
+          item.innerHTML = `
+            <span style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 175px;">${c.label}</span>
+            <div class="cycle-mgr-actions">
+              <button class="plan-btn-small" data-act="toggle">${c.hidden ? 'Unhide' : 'Hide'}</button>
+              <button class="plan-btn-small plan-btn-del" data-act="del">&times;</button>
+            </div>
+          `;
+
+          item.querySelector('[data-act="toggle"]').onclick = function() {
+            c.hidden = !c.hidden;
+            saveCycles();
+            populateCycleDropdown();
+            renderCycleManager();
+            render();
+            renderPlans();
+            renderDeadlines();
+          };
+
+          item.querySelector('[data-act="del"]').onclick = function() {
+            if (allCycles.length <= 1) {
+              alert("You must keep at least one schedule cycle.");
+              return;
+            }
+            if (confirm(`Delete cycle stretch "${c.label}"?`)) {
+              allCycles = allCycles.filter(x => x.id !== c.id);
+              saveCycles();
+              populateCycleDropdown();
+              renderCycleManager();
+              render();
+              renderPlans();
+              renderDeadlines();
+            }
+          };
+
+          cycleMgrList.appendChild(item);
+        });
+      }
+
+      document.getElementById("btnAddCycle").onclick = function() {
+        const dateInput = document.getElementById("newCycleStartDate");
+        if (!dateInput.value) {
+          alert("Please select a starting date.");
+          return;
+        }
+
+        const startD = parseYMD(dateInput.value);
+        if (startD.getDay() !== 0) {
+          alert("Standard hospital 6-week schedules must start on a Sunday. Please select a Sunday date.");
+          return;
+        }
+
+        const endD = new Date(startD.getTime() + (41 * MS_IN_DAY));
+        const startStr = formatYMD(startD);
+        const endStr = formatYMD(endD);
+
+        const opensD = new Date(startD.getTime() - (56 * MS_IN_DAY));
+        const closesD = new Date(startD.getTime() - (35 * MS_IN_DAY));
+        const pubD = new Date(startD.getTime() - (21 * MS_IN_DAY));
+
+        const startParts = startStr.split("-");
+        const endParts = endStr.split("-");
+        const label = `${startParts[1]}/${startParts[2]}/${startParts[0]} – ${endParts[1]}/${endParts[2]}/${endParts[0]}`;
+
+        const newCycle = {
+          id: "c_" + Date.now(),
+          label: label,
+          start: startStr,
+          end: endStr,
+          opens: formatYMD(opensD),
+          closes: formatYMD(closesD),
+          published: formatYMD(pubD),
+          hidden: false
+        };
+
+        allCycles.push(newCycle);
+        allCycles.sort((a, b) => a.start.localeCompare(b.start));
+
+        currentCycleId = newCycle.id;
+        dateInput.value = "";
+        saveCycles();
+        populateCycleDropdown();
+        renderCycleManager();
+        render();
+        renderPlans();
+        renderDeadlines();
+      };
+
+      function saveCycles() {
+        localStorage.setItem(CYCLES_KEY, JSON.stringify(allCycles));
+        autoSyncToCloud();
+      }
 
       document.querySelectorAll(".paint-tool").forEach(toolBtn => {
         toolBtn.addEventListener("click", () => {
@@ -703,7 +993,6 @@
         });
       });
 
-      // Pay rates listeners
       ["rateBase", "rateNightDiff", "rateWkndDiff", "payPeriodSelect"].forEach(id => {
         document.getElementById(id).addEventListener("input", renderPayEstimates);
       });
@@ -721,11 +1010,14 @@
         })
         .then(res => res.json())
         .then(data => {
-          if (data && data.record && (data.record.shifts || data.record.plans)) {
-            shiftData = data.record.shifts || {};
-            customPlans = data.record.plans || [];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData));
+          if (data && data.record) {
+            if (data.record.shifts) shiftData = data.record.shifts;
+            if (data.record.plans) customPlans = data.record.plans;
+            if (data.record.cycles) allCycles = data.record.cycles;
+            localStorage.setItem(SHIFTS_KEY, JSON.stringify(shiftData));
             localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans));
+            localStorage.setItem(CYCLES_KEY, JSON.stringify(allCycles));
+            populateCycleDropdown();
             render();
             renderPlans();
             renderDeadlines();
@@ -738,8 +1030,9 @@
       }
 
       function autoSyncToCloud() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData));
+        localStorage.setItem(SHIFTS_KEY, JSON.stringify(shiftData));
         localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans));
+        localStorage.setItem(CYCLES_KEY, JSON.stringify(allCycles));
         if (!JSONBIN_BIN_ID) return;
 
         setSyncStatus("saving", "Saving...");
@@ -751,7 +1044,7 @@
               "Content-Type": "application/json",
               "X-Master-Key": JSONBIN_API_KEY
             },
-            body: JSON.stringify({ shifts: shiftData, plans: customPlans })
+            body: JSON.stringify({ shifts: shiftData, plans: customPlans, cycles: allCycles })
           })
           .then(res => {
             if (res.ok) setSyncStatus("", "Synced");
@@ -784,9 +1077,8 @@
         return dates;
       }
 
-      // Feature #4: Render Deadlines & Countdown
       function renderDeadlines() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const now = new Date();
         const opensDate = parseYMD(cycle.opens);
         const closesDate = parseYMD(cycle.closes);
@@ -816,9 +1108,8 @@
         }
       }
 
-      // Feature #4: Export Deadline Reminders to Apple Calendar (.ics)
       document.getElementById("btnExportDeadlines").onclick = function() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const formatDateICS = (dStr) => dStr.replace(/-/g, "");
 
         const icsContent = [
@@ -896,9 +1187,8 @@
         render();
       }
 
-      // Generator targeting exactly 9 Nights, 9 Days, 4 Weekend days, and 3 Fridays
       document.getElementById("btnAutoGenerate").onclick = function() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
 
         dates.forEach(d => {
@@ -974,20 +1264,33 @@
         render();
       };
 
-      // Feature #5: Pay & Differential Calculations
       function renderPayEstimates() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
         const baseRate = parseFloat(document.getElementById("rateBase").value) || 0;
         const nightDiff = parseFloat(document.getElementById("rateNightDiff").value) || 0;
         const wkndDiff = parseFloat(document.getElementById("rateWkndDiff").value) || 0;
         const filter = document.getElementById("payPeriodSelect").value;
 
-        // Group into 3 biweekly pay periods (weeks 0-1, weeks 2-3, weeks 4-5)
         const payPeriods = [
-          { name: "Pay Period 1 (Wk 1-2)", dates: dates.slice(0, 14) },
-          { name: "Pay Period 2 (Wk 3-4)", dates: dates.slice(14, 28) },
-          { name: "Pay Period 3 (Wk 5-6)", dates: dates.slice(28, 42) }
+          {
+            name: "Pay Period 1",
+            dates: dates.slice(0, 14),
+            rangeLabel: `${formatYMD(dates[0])} to ${formatYMD(dates[13])}`,
+            payDate: getPayDateForPeriodEnd(dates[13])
+          },
+          {
+            name: "Pay Period 2",
+            dates: dates.slice(14, 28),
+            rangeLabel: `${formatYMD(dates[14])} to ${formatYMD(dates[27])}`,
+            payDate: getPayDateForPeriodEnd(dates[27])
+          },
+          {
+            name: "Pay Period 3",
+            dates: dates.slice(28, 42),
+            rangeLabel: `${formatYMD(dates[28])} to ${formatYMD(dates[41])}`,
+            payDate: getPayDateForPeriodEnd(dates[41])
+          }
         ];
 
         let activePeriods = payPeriods;
@@ -997,11 +1300,11 @@
 
         let totalRegHours = 0;
         let totalOtHours = 0;
+        let totalHolidayHours = 0;
         let totalNightHours = 0;
         let totalWkndHours = 0;
 
         activePeriods.forEach(pp => {
-          // Track hours per week to calculate weekly OT (>40 hrs)
           const wk1Dates = pp.dates.slice(0, 7);
           const wk2Dates = pp.dates.slice(7, 14);
 
@@ -1010,6 +1313,7 @@
             wk.forEach(d => {
               const str = formatYMD(d);
               const dow = d.getDay();
+              const isHoliday = !!HOLIDAYS[str];
               const entry = shiftData[str];
               if (!entry || entry.type === "BLOCK") return;
 
@@ -1021,11 +1325,11 @@
 
               wkHours += hrs;
               if (isNight) totalNightHours += hrs;
+              if (isHoliday) totalHolidayHours += hrs;
 
-              // Weekend differential: Friday 19:00 to Sunday 19:00
-              if (dow === 0) totalWkndHours += hrs; // Sunday
-              else if (dow === 6) totalWkndHours += hrs; // Saturday
-              else if (dow === 5 && isNight) totalWkndHours += hrs; // Friday Night
+              if (dow === 0) totalWkndHours += hrs;
+              else if (dow === 6) totalWkndHours += hrs;
+              else if (dow === 5 && isNight) totalWkndHours += hrs;
             });
 
             if (wkHours > 40) {
@@ -1037,28 +1341,37 @@
           });
         });
 
+        const holidayPremiumPay = totalHolidayHours * (baseRate * 0.5);
         const basePay = totalRegHours * baseRate;
         const otPay = totalOtHours * (baseRate * 1.5);
         const nightDiffPay = totalNightHours * nightDiff;
         const wkndDiffPay = totalWkndHours * wkndDiff;
-        const diffAndOtSum = otPay + nightDiffPay + wkndDiffPay;
-        const grossEarnings = basePay + diffAndOtSum;
+        const diffAndPremiumSum = otPay + holidayPremiumPay + nightDiffPay + wkndDiffPay;
+        const grossEarnings = basePay + diffAndPremiumSum;
 
-        document.getElementById("payPeriodHeader").textContent = filter === "all" ? "Full 6-Week Breakdown" : activePeriods[0].name;
+        if (filter === "all") {
+          document.getElementById("payPeriodHeader").textContent = "Full 6-Week Total";
+          document.getElementById("payPeriodSubDate").textContent = "3 Biweekly Periods Combined";
+        } else {
+          document.getElementById("payPeriodHeader").textContent = activePeriods[0].name;
+          document.getElementById("payPeriodSubDate").textContent = `Work: ${activePeriods[0].rangeLabel} | Pay Date: ${activePeriods[0].payDate}`;
+        }
+
         document.getElementById("payRegOt").textContent = `${totalRegHours}h / ${totalOtHours}h`;
+        document.getElementById("payHolidayHours").textContent = `${totalHolidayHours}h ($${Math.round(totalHolidayHours * baseRate * 1.5).toLocaleString()})`;
         document.getElementById("payNightHours").textContent = `${totalNightHours}h ($${Math.round(nightDiffPay).toLocaleString()})`;
         document.getElementById("payWkndHours").textContent = `${totalWkndHours}h ($${Math.round(wkndDiffPay).toLocaleString()})`;
         document.getElementById("payBaseSum").textContent = `$${Math.round(basePay).toLocaleString()}`;
-        document.getElementById("payDiffSum").textContent = `$${Math.round(diffAndOtSum).toLocaleString()}`;
+        document.getElementById("payDiffSum").textContent = `$${Math.round(diffAndPremiumSum).toLocaleString()}`;
         document.getElementById("payTotalGross").textContent = `$${Math.round(grossEarnings).toLocaleString()}`;
       }
 
       function renderPlans() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         cycleBadgeIndicator.textContent = `Active Cycle: ${cycle.label}`;
         plansListEl.innerHTML = "";
 
-        const matchingPlans = customPlans.filter(p => p.cycleIdx === currentCycleIdx);
+        const matchingPlans = customPlans.filter(p => p.cycleId === cycle.id || p.cycleLabel === cycle.label);
 
         if (matchingPlans.length === 0) {
           plansListEl.innerHTML = '<div style="color: var(--cv-text-muted); font-size: 0.72rem; text-align: center; padding: 8px;">No saved plans for this cycle</div>';
@@ -1105,15 +1418,15 @@
 
       document.getElementById("btnSavePlan").onclick = function() {
         const input = document.getElementById("planNameInput");
-        const cycle = CYCLES[currentCycleIdx];
-        const matchingCount = customPlans.filter(p => p.cycleIdx === currentCycleIdx).length;
+        const cycle = getActiveCycle();
+        const matchingCount = customPlans.filter(p => p.cycleId === cycle.id || p.cycleLabel === cycle.label).length;
         const name = input.value.trim() || `Option ${matchingCount + 1}`;
 
         customPlans.push({
           id: Date.now() + "_" + Math.random().toString(36).substr(2, 5),
           name: name,
           cycleLabel: cycle.label,
-          cycleIdx: currentCycleIdx,
+          cycleId: cycle.id,
           data: JSON.parse(JSON.stringify(shiftData))
         });
 
@@ -1133,7 +1446,7 @@
       }
 
       function render() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
         
         matrixEl.innerHTML = "";
@@ -1146,6 +1459,7 @@
           const dow = d.getDay();
           const isWknd = (dow === 0 || dow === 6);
           const holidayName = HOLIDAYS[dateStr];
+          const isPayday = isBiweeklyPayDate(d);
           const entry = shiftData[dateStr];
           const type = entry ? entry.type : "OFF";
 
@@ -1177,7 +1491,10 @@
           cell.innerHTML = `
             <div class="cell-top">
               <span class="cell-date-num">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-              <span class="cell-day-label">${isWknd ? 'WKND' : ''}</span>
+              <div style="display: flex; gap: 3px; align-items: center;">
+                ${isPayday ? `<span class="payday-badge">💰 PAYDAY</span>` : ''}
+                <span class="cell-day-label">${isWknd ? 'WKND' : ''}</span>
+              </div>
             </div>
             ${holidayName ? `<div class="holiday-full-banner">★ ${holidayName}</div>` : ''}
             ${blockHtml}
@@ -1209,7 +1526,7 @@
       }
 
       document.getElementById("btnClearCycle").onclick = function() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
         dates.forEach(d => delete shiftData[formatYMD(d)]);
         autoSyncToCloud();
@@ -1217,7 +1534,7 @@
       };
 
       document.getElementById("btnExport").onclick = function() {
-        const cycle = CYCLES[currentCycleIdx];
+        const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
         const scheduled = dates
           .map(d => {
@@ -1241,6 +1558,7 @@
         }
       };
 
+      populateCycleDropdown();
       render();
       renderPlans();
       renderDeadlines();
