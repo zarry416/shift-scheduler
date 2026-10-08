@@ -59,6 +59,21 @@
       outline: none;
     }
 
+    .sync-status {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: #21262d;
+      border: 1px solid var(--cv-border);
+      color: var(--cv-text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #3fb950; display: inline-block; }
+    .sync-dot.saving { background: #e3b341; }
+    .sync-dot.error { background: #f85149; }
+
     .toolbar-stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: 0.78rem; }
     .badge-stat {
       background: var(--cv-panel);
@@ -207,16 +222,6 @@
     .plan-btn-small:hover { color: #fff; background: #30363d; }
     .plan-btn-del { color: #f87171; font-weight: bold; }
 
-    .sync-section {
-      background: var(--cv-bg);
-      border: 1px solid var(--cv-border);
-      border-radius: 6px;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
     .btn-row { display: flex; gap: 6px; }
     .cv-btn {
       flex: 1;
@@ -359,6 +364,7 @@
     <div class="toolbar-left">
       <span class="page-heading">Shift Planner</span>
       <select id="cycleSelect"></select>
+      <div class="sync-status"><span class="sync-dot" id="syncDot"></span> <span id="syncText">Ready</span></div>
     </div>
     <div class="toolbar-stats">
       <div class="badge-stat" id="statBadgeTotal">Total: <strong id="statTotal">0</strong>/18</div>
@@ -395,11 +401,15 @@
       <div class="gen-box">
         <div class="side-title" style="margin-bottom: 2px;">Strategy Generator</div>
         <select class="gen-select" id="genStrategy">
+          <option value="max_off">Max Days Off (Block & Stretch)</option>
           <option value="cluster">Cluster (3 consecutive shifts)</option>
           <option value="spread">Spread Out (1-on / 1-off pattern)</option>
           <option value="holiday">Holiday Priority (Max Holiday Pay)</option>
         </select>
         <button class="btn-generator" id="btnAutoGenerate">⚡ Generate Compliant Plan</button>
+        <p style="font-size: 0.65rem; color: var(--cv-text-muted); line-height: 1.2;">
+          Follows 3 Fri, 4 Wknd, 3 Day wks, 3 Night wks, strictly avoiding 🚫 Blocked dates.
+        </p>
       </div>
 
       <div class="edu-inputs">
@@ -416,15 +426,6 @@
         <div style="display: flex; gap: 4px;">
           <input type="text" id="planNameInput" placeholder="Plan name" style="flex: 1; font-size: 0.75rem;">
           <button class="cv-btn primary" id="btnSavePlan" style="flex: 0 0 auto;">Save</button>
-        </div>
-      </div>
-
-      <!-- Sync between Mac and iPhone -->
-      <div class="sync-section">
-        <div class="side-title" style="margin-bottom: 2px;">Sync / Device Transfer</div>
-        <div class="btn-row">
-          <button class="cv-btn" id="btnExportSync">Copy Sync Code</button>
-          <button class="cv-btn" id="btnImportSync">Load Sync Code</button>
         </div>
       </div>
 
@@ -452,6 +453,10 @@
 
   <script>
     (function() {
+      // JSONBin cloud storage details (if configured)
+      const JSONBIN_BIN_ID = "";
+      const JSONBIN_API_KEY = "";
+
       const CYCLES = [
         { label: "11/15/2026 – 12/26/2026", start: "2026-11-15", end: "2026-12-26" },
         { label: "12/27/2026 – 02/06/2027", start: "2026-12-27", end: "2027-02-06" },
@@ -489,8 +494,8 @@
         "2028-01-01": "New Year's Day"
       };
 
-      const STORAGE_KEY = "shift_planner_saved_v13";
-      const PLANS_KEY = "shift_planner_custom_plans_v13";
+      const STORAGE_KEY = "shift_planner_saved_v15";
+      const PLANS_KEY = "shift_planner_custom_plans_v15";
 
       let shiftData = {};
       let customPlans = [];
@@ -507,10 +512,13 @@
 
       let currentCycleIdx = 0;
       let activeTool = "DAY";
+      let saveTimer = null;
 
       const cycleSelect = document.getElementById("cycleSelect");
       const matrixEl = document.getElementById("calendarMatrix");
       const plansListEl = document.getElementById("plansList");
+      const syncDot = document.getElementById("syncDot");
+      const syncText = document.getElementById("syncText");
 
       CYCLES.forEach((c, idx) => {
         const opt = document.createElement("option");
@@ -531,6 +539,58 @@
           activeTool = toolBtn.getAttribute("data-tool");
         });
       });
+
+      function setSyncStatus(state, msg) {
+        syncDot.className = "sync-dot " + state;
+        syncText.textContent = msg;
+      }
+
+      function loadFromCloud() {
+        if (!JSONBIN_BIN_ID) return;
+        setSyncStatus("saving", "Loading cloud...");
+        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+          headers: { "X-Master-Key": JSONBIN_API_KEY }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.record && (data.record.shifts || data.record.plans)) {
+            shiftData = data.record.shifts || {};
+            customPlans = data.record.plans || [];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData));
+            localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans));
+            render();
+            renderPlans();
+            setSyncStatus("", "Synced");
+          } else {
+            setSyncStatus("", "Ready");
+          }
+        })
+        .catch(() => setSyncStatus("error", "Offline (Local)"));
+      }
+
+      function autoSyncToCloud() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData));
+        localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans));
+        if (!JSONBIN_BIN_ID) return;
+
+        setSyncStatus("saving", "Saving...");
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Master-Key": JSONBIN_API_KEY
+            },
+            body: JSON.stringify({ shifts: shiftData, plans: customPlans })
+          })
+          .then(res => {
+            if (res.ok) setSyncStatus("", "Synced");
+            else setSyncStatus("error", "Sync Error");
+          })
+          .catch(() => setSyncStatus("error", "Sync Error"));
+        }, 600);
+      }
 
       function parseYMD(s) {
         const p = s.split("-");
@@ -587,7 +647,7 @@
           }
         }
 
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData)); } catch(e) {}
+        autoSyncToCloud();
         render();
       }
 
@@ -596,6 +656,7 @@
         const cycle = CYCLES[currentCycleIdx];
         const dates = getDatesInRange(cycle.start, cycle.end);
 
+        // Keep existing BLOCK days; clear all shifts in current cycle
         dates.forEach(d => {
           const str = formatYMD(d);
           if (shiftData[str] && shiftData[str].type !== "BLOCK") {
@@ -621,13 +682,33 @@
           return false;
         }
 
-        if (strategy === "cluster") {
+        // STRATEGY: Maximize Days Off
+        // Creates large 4-to-8 day blocks off:
+        // Wk 0 (Nights): Sun (11/15), Mon (11/16), Tue (11/17) -> Leaves 4 days off (Wed-Sat)
+        // Wk 1 (Nights): Sun (11/22), Mon (11/23), Tue (11/24) -> Leaves 4 days off (Wed-Sat)
+        // Wk 2 (Nights): Sun (11/29), Mon (11/30), Tue (12/01) -> Leaves an 8-DAY BREAK before day shifts!
+        // Wk 3 (Days):   Fri (12/11), Sat (12/12), Sun (12/13) -> Fulfills Fri #1 + Weekend Block #1
+        // Wk 4 (Days):   Fri (12/18), Sat (12/19), Sun (12/20) -> Fulfills Fri #2 + Weekend Block #2
+        // Wk 5 (Days):   Wed (12/23), Thu (12/24), Fri (12/25) -> Fulfills Fri #3
+        if (strategy === "max_off") {
+          // Night block: clustered Sun, Mon, Tue across all 3 weeks
+          [0, 1, 2].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
+          [0, 1, 2].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
+          [0, 1, 2].forEach(dayIdx => setShiftIfAvailable(weeks[2][dayIdx], "NIGHT"));
+
+          // Day block: creates massive 4-5 day stretches off between clusters
+          [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY")); // Fri #1, Sat, Sun (Wknd #1)
+          [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY")); // Fri #2, Sat, Sun (Wknd #2)
+          [3, 4, 5].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY")); // Wed, Thu, Fri #3
+
+        } else if (strategy === "cluster") {
           [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
           [1, 2, 3].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
           [3, 4, 5].forEach(dayIdx => setShiftIfAvailable(weeks[2][dayIdx], "NIGHT"));
           [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY"));
           [1, 2, 3].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY"));
           [1, 2, 3].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY"));
+
         } else if (strategy === "spread") {
           [0, 5, 6].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
           [1, 3, 5].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
@@ -635,6 +716,7 @@
           [0, 5, 6].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY"));
           [1, 3, 5].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY"));
           [1, 3, 5].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY"));
+
         } else if (strategy === "holiday") {
           if (currentCycleIdx === 0) {
             [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
@@ -662,7 +744,7 @@
           }
         }
 
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData)); } catch(e) {}
+        autoSyncToCloud();
         render();
       };
 
@@ -688,7 +770,7 @@
             shiftData = JSON.parse(JSON.stringify(plan.data));
             currentCycleIdx = plan.cycleIdx;
             cycleSelect.value = currentCycleIdx;
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData)); } catch(e) {}
+            autoSyncToCloud();
             render();
           };
 
@@ -696,7 +778,7 @@
             const newName = prompt("Rename plan to:", plan.name);
             if (newName && newName.trim()) {
               customPlans[idx].name = newName.trim();
-              try { localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans)); } catch(e) {}
+              autoSyncToCloud();
               renderPlans();
             }
           };
@@ -704,7 +786,7 @@
           item.querySelector('[data-action="delete"]').onclick = function() {
             if (confirm(`Delete "${plan.name}"?`)) {
               customPlans.splice(idx, 1);
-              try { localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans)); } catch(e) {}
+              autoSyncToCloud();
               renderPlans();
             }
           };
@@ -726,39 +808,8 @@
         });
 
         input.value = "";
-        try { localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans)); } catch(e) {}
+        autoSyncToCloud();
         renderPlans();
-      };
-
-      // Export / Import sync code to transfer data between devices
-      document.getElementById("btnExportSync").onclick = function() {
-        const exportObj = {
-          shifts: shiftData,
-          plans: customPlans
-        };
-        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(exportObj))));
-        navigator.clipboard.writeText(encoded).then(() => {
-          alert("Sync code copied! Open this site on your iPhone and tap 'Load Sync Code' to paste.");
-        }).catch(() => {
-          prompt("Copy this Sync Code:", encoded);
-        });
-      };
-
-      document.getElementById("btnImportSync").onclick = function() {
-        const code = prompt("Paste your Sync Code from your other device:");
-        if (!code) return;
-        try {
-          const decoded = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
-          if (decoded.shifts) shiftData = decoded.shifts;
-          if (decoded.plans) customPlans = decoded.plans;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData));
-          localStorage.setItem(PLANS_KEY, JSON.stringify(customPlans));
-          render();
-          renderPlans();
-          alert("Data successfully synced to this device!");
-        } catch (err) {
-          alert("Invalid Sync Code. Please make sure you copied the full string.");
-        }
       };
 
       function updateBadgeStatus(elementId, current, target) {
@@ -858,7 +909,7 @@
         const cycle = CYCLES[currentCycleIdx];
         const dates = getDatesInRange(cycle.start, cycle.end);
         dates.forEach(d => delete shiftData[formatYMD(d)]);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(shiftData)); } catch(e) {}
+        autoSyncToCloud();
         render();
       };
 
@@ -889,6 +940,7 @@
 
       render();
       renderPlans();
+      loadFromCloud();
     })();
   </script>
 </body>
