@@ -154,23 +154,14 @@
       flex-direction: column;
       gap: 6px;
     }
-    .gen-select {
-      background: #11151c;
-      color: var(--cv-text-white);
-      border: 1px solid var(--cv-border);
-      padding: 5px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      width: 100%;
-    }
     .btn-generator {
       background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: #fff;
       font-weight: 700;
       border: 1px solid #3b82f6;
       border-radius: 6px;
-      padding: 7px 10px;
-      font-size: 0.78rem;
+      padding: 8px 10px;
+      font-size: 0.8rem;
       cursor: pointer;
       width: 100%;
       text-align: center;
@@ -190,8 +181,19 @@
     .edu-inputs input { font-size: 0.73rem; padding: 4px 6px; }
 
     .plans-section { display: flex; flex-direction: column; gap: 5px; }
+    .cycle-badge-indicator {
+      font-size: 0.68rem;
+      background: #11151c;
+      color: #58a6ff;
+      border: 1px solid #1f6feb;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
     .plans-list {
-      max-height: 110px;
+      max-height: 120px;
       overflow-y: auto;
       background: var(--cv-bg);
       border: 1px solid var(--cv-border);
@@ -202,7 +204,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 4px 6px;
+      padding: 5px 6px;
       font-size: 0.75rem;
       border-radius: 4px;
       gap: 4px;
@@ -369,8 +371,8 @@
     <div class="toolbar-stats">
       <div class="badge-stat" id="statBadgeTotal">Total: <strong id="statTotal">0</strong>/18</div>
       <div class="badge-stat" id="statBadgeHours">Hours: <strong id="statHours" style="color: #6ee7b7;">0</strong>h</div>
-      <div class="badge-stat" id="statBadgeDay">Day Wks: <strong id="statDayWks">0</strong>/3</div>
-      <div class="badge-stat" id="statBadgeNight">Night Wks: <strong id="statNightWks">0</strong>/3</div>
+      <div class="badge-stat" id="statBadgeDay">Days: <strong id="statDay">0</strong>/9</div>
+      <div class="badge-stat" id="statBadgeNight">Nights: <strong id="statNight">0</strong>/9</div>
       <div class="badge-stat" id="statBadgeWknd">Weekend: <strong id="statWknd">0</strong>/4</div>
       <div class="badge-stat" id="statBadgeFri">Fridays: <strong id="statFri">0</strong>/3</div>
       <div class="badge-stat" id="statBadgePickup" style="color: #34d399;">Pickups: <strong id="statPickup">0</strong></div>
@@ -399,16 +401,10 @@
       </div>
 
       <div class="gen-box">
-        <div class="side-title" style="margin-bottom: 2px;">Strategy Generator</div>
-        <select class="gen-select" id="genStrategy">
-          <option value="max_off">Max Days Off (Block & Stretch)</option>
-          <option value="cluster">Cluster (3 consecutive shifts)</option>
-          <option value="spread">Spread Out (1-on / 1-off pattern)</option>
-          <option value="holiday">Holiday Priority (Max Holiday Pay)</option>
-        </select>
-        <button class="btn-generator" id="btnAutoGenerate">⚡ Generate Compliant Plan</button>
+        <div class="side-title" style="margin-bottom: 2px;">Smart Schedule Generator</div>
+        <button class="btn-generator" id="btnAutoGenerate">⚡ Generate New Variation</button>
         <p style="font-size: 0.65rem; color: var(--cv-text-muted); line-height: 1.2;">
-          Follows 3 Fri, 4 Wknd, 3 Day wks, 3 Night wks, strictly avoiding 🚫 Blocked dates.
+          Auto-fills exactly 9 Nights, 9 Days, 4 Weekend shifts, and 3 Fridays clustered without quick flips or blocked dates.
         </p>
       </div>
 
@@ -419,12 +415,13 @@
       </div>
 
       <div class="plans-section">
-        <div class="side-title">Saved Plans</div>
+        <div class="side-title">Saved Plans for Selected Cycle</div>
+        <span class="cycle-badge-indicator" id="cycleBadgeIndicator"></span>
         <div class="plans-list" id="plansList">
-          <div style="color: var(--cv-text-muted); font-size: 0.72rem; text-align: center; padding: 8px;">No saved plans yet</div>
+          <div style="color: var(--cv-text-muted); font-size: 0.72rem; text-align: center; padding: 8px;">No saved plans for this cycle</div>
         </div>
         <div style="display: flex; gap: 4px;">
-          <input type="text" id="planNameInput" placeholder="Plan name" style="flex: 1; font-size: 0.75rem;">
+          <input type="text" id="planNameInput" placeholder="Plan name (e.g. Option A)" style="flex: 1; font-size: 0.75rem;">
           <button class="cv-btn primary" id="btnSavePlan" style="flex: 0 0 auto;">Save</button>
         </div>
       </div>
@@ -453,7 +450,6 @@
 
   <script>
     (function() {
-      // JSONBin cloud storage details (if configured)
       const JSONBIN_BIN_ID = "";
       const JSONBIN_API_KEY = "";
 
@@ -494,8 +490,8 @@
         "2028-01-01": "New Year's Day"
       };
 
-      const STORAGE_KEY = "shift_planner_saved_v15";
-      const PLANS_KEY = "shift_planner_custom_plans_v15";
+      const STORAGE_KEY = "shift_planner_saved_v17";
+      const PLANS_KEY = "shift_planner_custom_plans_v17";
 
       let shiftData = {};
       let customPlans = [];
@@ -517,6 +513,7 @@
       const cycleSelect = document.getElementById("cycleSelect");
       const matrixEl = document.getElementById("calendarMatrix");
       const plansListEl = document.getElementById("plansList");
+      const cycleBadgeIndicator = document.getElementById("cycleBadgeIndicator");
       const syncDot = document.getElementById("syncDot");
       const syncText = document.getElementById("syncText");
 
@@ -530,6 +527,7 @@
       cycleSelect.addEventListener("change", function(e) {
         currentCycleIdx = parseInt(e.target.value, 10);
         render();
+        renderPlans();
       });
 
       document.querySelectorAll(".paint-tool").forEach(toolBtn => {
@@ -651,12 +649,12 @@
         render();
       }
 
+      // Generator targeting exactly 9 Nights, 9 Days, 4 Weekend days, and 3 Fridays
       document.getElementById("btnAutoGenerate").onclick = function() {
-        const strategy = document.getElementById("genStrategy").value;
         const cycle = CYCLES[currentCycleIdx];
         const dates = getDatesInRange(cycle.start, cycle.end);
 
-        // Keep existing BLOCK days; clear all shifts in current cycle
+        // Keep 🚫 Blocked dates intact; clear other shifts
         dates.forEach(d => {
           const str = formatYMD(d);
           if (shiftData[str] && shiftData[str].type !== "BLOCK") {
@@ -674,7 +672,7 @@
           return !(shiftData[str] && shiftData[str].type === "BLOCK");
         }
 
-        function setShiftIfAvailable(d, type) {
+        function setShift(d, type) {
           if (canSchedule(d)) {
             shiftData[formatYMD(d)] = { type: type };
             return true;
@@ -682,66 +680,53 @@
           return false;
         }
 
-        // STRATEGY: Maximize Days Off
-        // Creates large 4-to-8 day blocks off:
-        // Wk 0 (Nights): Sun (11/15), Mon (11/16), Tue (11/17) -> Leaves 4 days off (Wed-Sat)
-        // Wk 1 (Nights): Sun (11/22), Mon (11/23), Tue (11/24) -> Leaves 4 days off (Wed-Sat)
-        // Wk 2 (Nights): Sun (11/29), Mon (11/30), Tue (12/01) -> Leaves an 8-DAY BREAK before day shifts!
-        // Wk 3 (Days):   Fri (12/11), Sat (12/12), Sun (12/13) -> Fulfills Fri #1 + Weekend Block #1
-        // Wk 4 (Days):   Fri (12/18), Sat (12/19), Sun (12/20) -> Fulfills Fri #2 + Weekend Block #2
-        // Wk 5 (Days):   Wed (12/23), Thu (12/24), Fri (12/25) -> Fulfills Fri #3
-        if (strategy === "max_off") {
-          // Night block: clustered Sun, Mon, Tue across all 3 weeks
-          [0, 1, 2].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
-          [0, 1, 2].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
-          [0, 1, 2].forEach(dayIdx => setShiftIfAvailable(weeks[2][dayIdx], "NIGHT"));
-
-          // Day block: creates massive 4-5 day stretches off between clusters
-          [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY")); // Fri #1, Sat, Sun (Wknd #1)
-          [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY")); // Fri #2, Sat, Sun (Wknd #2)
-          [3, 4, 5].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY")); // Wed, Thu, Fri #3
-
-        } else if (strategy === "cluster") {
-          [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
-          [1, 2, 3].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
-          [3, 4, 5].forEach(dayIdx => setShiftIfAvailable(weeks[2][dayIdx], "NIGHT"));
-          [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY"));
-          [1, 2, 3].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY"));
-          [1, 2, 3].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY"));
-
-        } else if (strategy === "spread") {
-          [0, 5, 6].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
-          [1, 3, 5].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
-          [1, 3, 4].forEach(dayIdx => setShiftIfAvailable(weeks[2][dayIdx], "NIGHT"));
-          [0, 5, 6].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY"));
-          [1, 3, 5].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY"));
-          [1, 3, 5].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY"));
-
-        } else if (strategy === "holiday") {
-          if (currentCycleIdx === 0) {
-            [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
-            setShiftIfAvailable(weeks[1][1], "NIGHT");
-            setShiftIfAvailable(weeks[1][3], "NIGHT");
-            setShiftIfAvailable(weeks[1][4], "NIGHT");
-
-            setShiftIfAvailable(weeks[2][1], "NIGHT");
-            setShiftIfAvailable(weeks[2][2], "NIGHT");
-            setShiftIfAvailable(weeks[2][5], "NIGHT");
-
-            [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY"));
-            [1, 2, 4].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY"));
-
-            setShiftIfAvailable(weeks[5][1], "DAY");
-            setShiftIfAvailable(weeks[5][4], "DAY");
-            setShiftIfAvailable(weeks[5][5], "DAY");
-          } else {
-            [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[0][dayIdx], "NIGHT"));
-            [1, 2, 4].forEach(dayIdx => setShiftIfAvailable(weeks[1][dayIdx], "NIGHT"));
-            [1, 2, 5].forEach(dayIdx => setShiftIfAvailable(weeks[2][dayIdx], "NIGHT"));
-            [5, 6, 0].forEach(dayIdx => setShiftIfAvailable(weeks[3][dayIdx], "DAY"));
-            [1, 2, 4].forEach(dayIdx => setShiftIfAvailable(weeks[4][dayIdx], "DAY"));
-            [1, 2, 4].forEach(dayIdx => setShiftIfAvailable(weeks[5][dayIdx], "DAY"));
+        function shuffle(arr) {
+          const a = [...arr];
+          for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
           }
+          return a;
+        }
+
+        // Night Block: Weeks 0, 1, 2 (3 shifts per week = exactly 9 nights)
+        // Weekend block #1: Fri, Sat, Sun (or Sat, Sun, Mon) in week 0 or week 1
+        const nightWkndWk = Math.random() < 0.5 ? 0 : 1;
+        const otherNightWk = nightWkndWk === 0 ? 1 : 0;
+
+        const wkndOpts = [ [5, 6, 0], [6, 0, 1] ];
+        shuffle(wkndOpts)[0].forEach(idx => setShift(weeks[nightWkndWk][idx], "NIGHT"));
+
+        const nightClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4], [3, 4, 5] ];
+        const shuffledNight = shuffle(nightClusters);
+        shuffledNight[0].forEach(idx => setShift(weeks[otherNightWk][idx], "NIGHT"));
+        shuffledNight[1].forEach(idx => setShift(weeks[2][idx], "NIGHT"));
+
+        // Day Block: Weeks 3, 4, 5 (3 shifts per week = exactly 9 days)
+        // Balance weekend and Friday requirements:
+        let fridaysInNights = 0;
+        for (let w = 0; w < 3; w++) {
+          if (shiftData[formatYMD(weeks[w][5])]) fridaysInNights++;
+        }
+        let fridaysNeededInDays = Math.max(1, 3 - fridaysInNights);
+
+        const dayWkndWk = Math.random() < 0.5 ? 3 : 4;
+        const otherDayWk1 = dayWkndWk === 3 ? 4 : 3;
+        const otherDayWk2 = 5;
+
+        // Weekend block #2 for days (Sat, Sun, Fri)
+        [5, 6, 0].forEach(idx => setShift(weeks[dayWkndWk][idx], "DAY"));
+        fridaysNeededInDays--;
+
+        const dayClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4] ];
+        const shuffledDay = shuffle(dayClusters);
+
+        if (fridaysNeededInDays > 0) {
+          [3, 4, 5].forEach(idx => setShift(weeks[otherDayWk1][idx], "DAY"));
+          shuffledDay[0].forEach(idx => setShift(weeks[otherDayWk2][idx], "DAY"));
+        } else {
+          shuffledDay[0].forEach(idx => setShift(weeks[otherDayWk1][idx], "DAY"));
+          shuffledDay[1].forEach(idx => setShift(weeks[otherDayWk2][idx], "DAY"));
         }
 
         autoSyncToCloud();
@@ -749,17 +734,22 @@
       };
 
       function renderPlans() {
+        const cycle = CYCLES[currentCycleIdx];
+        cycleBadgeIndicator.textContent = `Active Cycle: ${cycle.label}`;
         plansListEl.innerHTML = "";
-        if (customPlans.length === 0) {
-          plansListEl.innerHTML = '<div style="color: var(--cv-text-muted); font-size: 0.72rem; text-align: center; padding: 8px;">No saved plans yet</div>';
+
+        const matchingPlans = customPlans.filter(p => p.cycleIdx === currentCycleIdx);
+
+        if (matchingPlans.length === 0) {
+          plansListEl.innerHTML = '<div style="color: var(--cv-text-muted); font-size: 0.72rem; text-align: center; padding: 8px;">No saved plans for this cycle</div>';
           return;
         }
 
-        customPlans.forEach((plan, idx) => {
+        matchingPlans.forEach((plan) => {
           const item = document.createElement("div");
           item.className = "plan-item";
           item.innerHTML = `
-            <span class="plan-name-clickable" title="Load ${plan.name}">${plan.name}</span>
+            <span class="plan-name-clickable" title="Load ${plan.name}">★ ${plan.name}</span>
             <div class="plan-actions">
               <button class="plan-btn-small" data-action="rename">Edit</button>
               <button class="plan-btn-small plan-btn-del" data-action="delete">&times;</button>
@@ -768,8 +758,6 @@
 
           item.querySelector(".plan-name-clickable").onclick = function() {
             shiftData = JSON.parse(JSON.stringify(plan.data));
-            currentCycleIdx = plan.cycleIdx;
-            cycleSelect.value = currentCycleIdx;
             autoSyncToCloud();
             render();
           };
@@ -777,7 +765,7 @@
           item.querySelector('[data-action="rename"]').onclick = function() {
             const newName = prompt("Rename plan to:", plan.name);
             if (newName && newName.trim()) {
-              customPlans[idx].name = newName.trim();
+              plan.name = newName.trim();
               autoSyncToCloud();
               renderPlans();
             }
@@ -785,7 +773,7 @@
 
           item.querySelector('[data-action="delete"]').onclick = function() {
             if (confirm(`Delete "${plan.name}"?`)) {
-              customPlans.splice(idx, 1);
+              customPlans = customPlans.filter(p => p.id !== plan.id);
               autoSyncToCloud();
               renderPlans();
             }
@@ -797,12 +785,14 @@
 
       document.getElementById("btnSavePlan").onclick = function() {
         const input = document.getElementById("planNameInput");
-        const name = input.value.trim() || `Plan ${customPlans.length + 1}`;
         const cycle = CYCLES[currentCycleIdx];
+        const matchingCount = customPlans.filter(p => p.cycleIdx === currentCycleIdx).length;
+        const name = input.value.trim() || `Option ${matchingCount + 1}`;
 
         customPlans.push({
+          id: Date.now() + "_" + Math.random().toString(36).substr(2, 5),
           name: name,
-          cycle: cycle.label.split("–")[0].trim(),
+          cycleLabel: cycle.label,
           cycleIdx: currentCycleIdx,
           data: JSON.parse(JSON.stringify(shiftData))
         });
@@ -829,21 +819,18 @@
         matrixEl.innerHTML = "";
 
         let dayCount = 0, nightCount = 0, pickupDayCount = 0, pickupNightCount = 0, pickup8Count = 0, eduCount = 0, blockedCount = 0, weekendCount = 0, fridayCount = 0;
-        let weekDayCount = [0, 0, 0, 0, 0, 0];
-        let weekNightCount = [0, 0, 0, 0, 0, 0];
         let totalHours = 0;
 
-        dates.forEach((d, idx) => {
+        dates.forEach((d) => {
           const dateStr = formatYMD(d);
           const dow = d.getDay();
-          const weekIdx = Math.floor(idx / 7);
           const isWknd = (dow === 0 || dow === 6);
           const holidayName = HOLIDAYS[dateStr];
           const entry = shiftData[dateStr];
           const type = entry ? entry.type : "OFF";
 
-          if (type === "DAY") { dayCount++; weekDayCount[weekIdx]++; totalHours += 12; }
-          if (type === "NIGHT") { nightCount++; weekNightCount[weekIdx]++; totalHours += 12; }
+          if (type === "DAY") { dayCount++; totalHours += 12; }
+          if (type === "NIGHT") { nightCount++; totalHours += 12; }
           if (type === "PICKUP_DAY") { pickupDayCount++; totalHours += 12; }
           if (type === "PICKUP_NIGHT") { pickupNightCount++; totalHours += 12; }
           if (type === "PICKUP_8") { pickup8Count++; totalHours += 8; }
@@ -879,28 +866,24 @@
           matrixEl.appendChild(cell);
         });
 
-        let dayWeeksMet = 0, nightWeeksMet = 0;
-        for (let w = 0; w < 6; w++) {
-          if (weekDayCount[w] > 0 && weekNightCount[w] === 0) dayWeeksMet++;
-          if (weekNightCount[w] > 0 && weekDayCount[w] === 0) nightWeeksMet++;
-        }
-
         const totalShifts = dayCount + nightCount + pickupDayCount + pickupNightCount + pickup8Count + eduCount;
         const totalPickups = pickupDayCount + pickupNightCount + pickup8Count;
 
+        // Display individual day counts
         document.getElementById("statTotal").textContent = totalShifts;
         document.getElementById("statHours").textContent = totalHours;
-        document.getElementById("statDayWks").textContent = dayWeeksMet;
-        document.getElementById("statNightWks").textContent = nightWeeksMet;
+        document.getElementById("statDay").textContent = dayCount;
+        document.getElementById("statNight").textContent = nightCount;
         document.getElementById("statWknd").textContent = weekendCount;
         document.getElementById("statFri").textContent = fridayCount;
         document.getElementById("statPickup").textContent = totalPickups;
         document.getElementById("statEdu").textContent = eduCount;
         document.getElementById("statBlocked").textContent = blockedCount;
 
+        // Evaluate requirement fulfillment (Green upon hitting or exceeding targets)
         updateBadgeStatus("statBadgeTotal", totalShifts, 18);
-        updateBadgeStatus("statBadgeDay", dayWeeksMet, 3);
-        updateBadgeStatus("statBadgeNight", nightWeeksMet, 3);
+        updateBadgeStatus("statBadgeDay", dayCount, 9);
+        updateBadgeStatus("statBadgeNight", nightCount, 9);
         updateBadgeStatus("statBadgeWknd", weekendCount, 4);
         updateBadgeStatus("statBadgeFri", fridayCount, 3);
       }
