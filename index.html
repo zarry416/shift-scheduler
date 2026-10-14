@@ -1315,21 +1315,19 @@
               wkHours += hrs;
               if (isHoliday) totalHolidayHours += hrs;
 
-              // Exact MedStar Differential Windows:
-              // Weekend Nights (+$9.65): Friday night (dow 5) and Saturday night (dow 6)
-              // Weekday Nights (+$4.65): Sunday night through Thursday night (dow 0, 1, 2, 3, 4)
-              // Weekend Days (+$5.00): Saturday day (dow 6) and Sunday day (dow 0)
-              if (isNight) {
-                if (dow === 5 || dow === 6) {
-                  totalWkndNightHours += hrs;
-                } else {
-                  totalWkdayNightHours += hrs;
-                }
-              } else {
-                if (dow === 6 || dow === 0) {
-                  totalWkndDayHours += hrs;
-                }
-              }
+          
+              // MedStar Offer Letter Policy: Saturday & Sunday night
+if (isNight) {
+  if (dow === 6 || dow === 0) {
+    totalWkndNightHours += hrs; // Saturday Night & Sunday Night (+$9.65)
+  } else {
+    totalWkdayNightHours += hrs; // Mon, Tue, Wed, Thu, Fri Night (+$4.65)
+  }
+} else {
+  if (dow === 6 || dow === 0) {
+    totalWkndDayHours += hrs;   // Saturday Day & Sunday Day (+$5.00)
+  }
+}
             });
 
             if (wkHours > 40) {
