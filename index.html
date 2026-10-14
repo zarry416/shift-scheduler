@@ -597,7 +597,6 @@
         </p>
       </div>
 
-      <!-- Biweekly Payroll & Differential Estimator (MedStar Health Exact Rates) -->
       <div class="pay-card">
         <div class="side-title" style="margin-bottom: 2px; color: #58a6ff;">Biweekly Payroll Estimator</div>
         <div class="pay-rates-grid">
@@ -1250,7 +1249,11 @@
         render();
       };
 
-      // Accurate Calculations based on MedStar Offer Letter Tiered Rates
+      // Accurate MedStar Differential Calculations:
+      // Base: $41.375
+      // Weekday Nights (7p-7a, Sun night - Thu night): +$4.65
+      // Weekend Days (7a-7p, Sat & Sun): +$5.00
+      // Weekend Nights (7p-7a, Sat & Sun night): +$9.65
       function renderPayEstimates() {
         const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
@@ -1315,19 +1318,21 @@
               wkHours += hrs;
               if (isHoliday) totalHolidayHours += hrs;
 
-          
-              // MedStar Offer Letter Policy: Saturday & Sunday night
-if (isNight) {
-  if (dow === 6 || dow === 0) {
-    totalWkndNightHours += hrs; // Saturday Night & Sunday Night (+$9.65)
-  } else {
-    totalWkdayNightHours += hrs; // Mon, Tue, Wed, Thu, Fri Night (+$4.65)
-  }
-} else {
-  if (dow === 6 || dow === 0) {
-    totalWkndDayHours += hrs;   // Saturday Day & Sunday Day (+$5.00)
-  }
-}
+              // Exact MedStar Offer Letter Differential Rules:
+              // Weekend Nights (Sat/Sun 7p-7a): +$9.65
+              // Weekday Nights (7p-7a, Mon-Fri night): +$4.65
+              // Weekend Days (Sat/Sun 7a-7p): +$5.00
+              if (isNight) {
+                if (dow === 6 || dow === 0) {
+                  totalWkndNightHours += hrs;
+                } else {
+                  totalWkdayNightHours += hrs;
+                }
+              } else if (entry.type !== "EDU") {
+                if (dow === 6 || dow === 0) {
+                  totalWkndDayHours += hrs;
+                }
+              }
             });
 
             if (wkHours > 40) {
@@ -1465,15 +1470,16 @@ if (isNight) {
           const entry = shiftData[dateStr];
           const type = entry ? entry.type : "OFF";
 
+          // CORE REQUIREMENTS: EDU is excluded from bedside shift totals
           if (type === "DAY") { dayCount++; totalHours += 12; if (isFri) fridayDayCount++; }
           if (type === "NIGHT") { nightCount++; totalHours += 12; if (isFri) fridayNightCount++; }
           if (type === "PICKUP_DAY") { pickupDayCount++; totalHours += 12; if (isFri) fridayDayCount++; }
           if (type === "PICKUP_NIGHT") { pickupNightCount++; totalHours += 12; if (isFri) fridayNightCount++; }
           if (type === "PICKUP_8") { pickup8Count++; totalHours += 8; if (isFri) fridayDayCount++; }
-          if (type === "EDU") { eduCount++; totalHours += 8; if (isFri) fridayDayCount++; }
+          if (type === "EDU") { eduCount++; totalHours += 8; }
           if (type === "BLOCK") blockedCount++;
           
-          if (type !== "OFF" && type !== "BLOCK") {
+          if (type !== "OFF" && type !== "BLOCK" && type !== "EDU") {
             if (isWknd) weekendCount++;
           }
 
@@ -1504,10 +1510,11 @@ if (isNight) {
           matrixEl.appendChild(cell);
         });
 
-        const totalShifts = dayCount + nightCount + pickupDayCount + pickupNightCount + pickup8Count + eduCount;
+        // Core Bedside Shifts: exactly Days + Nights + Pickups (Excludes EDU)
+        const totalClinicalShifts = dayCount + nightCount + pickupDayCount + pickupNightCount + pickup8Count;
         const totalPickups = pickupDayCount + pickupNightCount + pickup8Count;
 
-        document.getElementById("statTotal").textContent = totalShifts;
+        document.getElementById("statTotal").textContent = totalClinicalShifts;
         document.getElementById("statHours").textContent = totalHours;
         document.getElementById("statDay").textContent = dayCount;
         document.getElementById("statNight").textContent = nightCount;
@@ -1518,7 +1525,8 @@ if (isNight) {
         document.getElementById("statEdu").textContent = eduCount;
         document.getElementById("statBlocked").textContent = blockedCount;
 
-        updateBadgeStatus("statBadgeTotal", totalShifts, 18);
+        // Metric badge color toggles (Green = target met)
+        updateBadgeStatus("statBadgeTotal", totalClinicalShifts, 18);
         updateBadgeStatus("statBadgeDay", dayCount, 9);
         updateBadgeStatus("statBadgeNight", nightCount, 9);
         updateBadgeStatus("statBadgeWknd", weekendCount, 4);
