@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230f172a'/><circle cx='50' cy='50' r='38' fill='none' stroke='%2338bdf8' stroke-width='4' stroke-dasharray='4 2'/><path d='M30 52 L42 52 L47 34 L53 66 L58 48 L63 52 L70 52' fill='none' stroke='%2338bdf8' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/><path d='M68 28 A 12 12 0 1 1 54 18 A 15 15 0 0 0 68 28 Z' fill='%23f59e0b'/></svg>">
   <title>Shift Schedule Planner & Generator</title>
+  
+  <!-- Custom PNG Favicon & iOS App Icons -->
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+
   <style>
     :root {
       --cv-bg: #0d1117;
@@ -522,7 +526,8 @@
       <div class="badge-stat" id="statBadgeDay">Days: <strong id="statDay">0</strong>/9</div>
       <div class="badge-stat" id="statBadgeNight">Nights: <strong id="statNight">0</strong>/9</div>
       <div class="badge-stat" id="statBadgeWknd">Weekend: <strong id="statWknd">0</strong>/4</div>
-      <div class="badge-stat" id="statBadgeFri">Fridays: <strong id="statFri">0</strong>/3</div>
+      <div class="badge-stat" id="statBadgeFriDay">Fri Day: <strong id="statFriDay">0</strong>/1</div>
+      <div class="badge-stat" id="statBadgeFriNight">Fri Night: <strong id="statFriNight">0</strong>/2</div>
       <div class="badge-stat" id="statBadgePickup" style="color: #34d399;">Pickups: <strong id="statPickup">0</strong></div>
       <div class="badge-stat" id="statBadgeEdu">Edu: <strong id="statEdu">0</strong></div>
       <div class="badge-stat" id="statBadgeBlocked" style="color: #f87171;">Blocked: <strong id="statBlocked">0</strong></div>
@@ -589,7 +594,7 @@
         <div class="side-title" style="margin-bottom: 2px;">Smart Schedule Generator</div>
         <button class="btn-generator" id="btnAutoGenerate">⚡ Generate New Variation</button>
         <p style="font-size: 0.65rem; color: var(--cv-text-muted); line-height: 1.2;">
-          Auto-fills exactly 9 Nights, 9 Days, 4 Weekend shifts, and 3 Fridays clustered without quick flips or blocked dates.
+          Auto-fills 9 Nights, 9 Days, 4 Weekend shifts, 1 Friday Day, and 2 Friday Nights clustered without quick flips or blocked dates.
         </p>
       </div>
 
@@ -714,7 +719,7 @@
         "2027-01-18": "MLK Jr. Day",
         "2027-05-31": "Memorial Day",
         "2027-06-18": "Juneteenth (Obs.)",
-        "2027-07-05": "Independence Day (Obs.)",
+        "2027-07-05": "4th of July (Obs.)",
         "2027-09-06": "Labor Day",
         "2027-11-25": "Thanksgiving Day",
         "2027-12-24": "Christmas Day (Obs.)",
@@ -743,7 +748,6 @@
         return dateStr;
       }
 
-      // PERMANENT UNVERSIONED STORAGE KEYS (Will never change on updates)
       const SHIFTS_KEY = "shift_planner_shifts";
       const PLANS_KEY = "shift_planner_plans";
       const CYCLES_KEY = "shift_planner_cycles";
@@ -752,26 +756,18 @@
       let customPlans = [];
       let allCycles = [];
 
-      // AUTOMATIC DATA MIGRATION: Checks all legacy lockers and restores your data
       function recoverAllPastData() {
         const legacyKeys = [
           "shift_planner_saved_v22", "shift_planner_saved_v21", "shift_planner_saved_v20",
           "shift_planner_saved_v19", "shift_planner_saved_v18", "shift_planner_saved_v17",
-          "shift_planner_saved_v16", "shift_planner_saved_v15", "shift_planner_saved_v14",
-          "shift_planner_saved_v13", "shift_planner_saved_v12", "shift_planner_saved_v11",
-          "shift_planner_saved_v10", "shift_planner_saved_v9", "shift_planner_saved_v8",
-          "shift_planner_saved_v7"
+          "shift_planner_saved_v16", "shift_planner_saved_v15", "shift_planner_saved_v14"
         ];
         const legacyPlanKeys = [
           "shift_planner_custom_plans_v22", "shift_planner_custom_plans_v21", "shift_planner_custom_plans_v20",
           "shift_planner_custom_plans_v19", "shift_planner_custom_plans_v18", "shift_planner_custom_plans_v17",
-          "shift_planner_custom_plans_v16", "shift_planner_custom_plans_v15", "shift_planner_custom_plans_v14",
-          "shift_planner_custom_plans_v13", "shift_planner_custom_plans_v12", "shift_planner_custom_plans_v11",
-          "shift_planner_custom_plans_v10", "shift_planner_custom_plans_v9", "shift_planner_custom_plans_v8",
-          "shift_planner_custom_plans_v7"
+          "shift_planner_custom_plans_v16", "shift_planner_custom_plans_v15", "shift_planner_custom_plans_v14"
         ];
 
-        // 1. Recover Shifts
         let existingShifts = localStorage.getItem(SHIFTS_KEY);
         if (existingShifts) {
           try { shiftData = JSON.parse(existingShifts); } catch(e) {}
@@ -793,7 +789,6 @@
           }
         }
 
-        // 2. Recover Plans
         let existingPlans = localStorage.getItem(PLANS_KEY);
         if (existingPlans) {
           try { customPlans = JSON.parse(existingPlans); } catch(e) {}
@@ -816,7 +811,6 @@
           }
         }
 
-        // 3. Recover Cycles
         let existingCycles = localStorage.getItem(CYCLES_KEY);
         if (existingCycles) {
           try { allCycles = JSON.parse(existingCycles); } catch(e) {}
@@ -1188,6 +1182,7 @@
         render();
       }
 
+      // Generator enforcing: exactly 9 Nights, 9 Days, 4 Weekend, 1 Friday Day, and 2 Friday Nights
       document.getElementById("btnAutoGenerate").onclick = function() {
         const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
@@ -1226,40 +1221,33 @@
           return a;
         }
 
+        // Night Block: Weeks 0, 1, 2 (Must include exactly 2 Friday nights and 1 weekend block)
+        // Weekend block (Fri 5, Sat 6, Sun 0) in Week 0 or Week 1 -> covers Friday Night #1
         const nightWkndWk = Math.random() < 0.5 ? 0 : 1;
         const otherNightWk = nightWkndWk === 0 ? 1 : 0;
+        
+        [5, 6, 0].forEach(idx => setShift(weeks[nightWkndWk][idx], "NIGHT"));
 
-        const wkndOpts = [ [5, 6, 0], [6, 0, 1] ];
-        shuffle(wkndOpts)[0].forEach(idx => setShift(weeks[nightWkndWk][idx], "NIGHT"));
+        // Week 2: Assigned Friday Night #2 via [3, 4, 5] (Wed-Thu-Fri)
+        [3, 4, 5].forEach(idx => setShift(weeks[2][idx], "NIGHT"));
 
-        const nightClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4], [3, 4, 5] ];
-        const shuffledNight = shuffle(nightClusters);
-        shuffledNight[0].forEach(idx => setShift(weeks[otherNightWk][idx], "NIGHT"));
-        shuffledNight[1].forEach(idx => setShift(weeks[2][idx], "NIGHT"));
+        // Remaining night week: clustered weekdays without Friday (e.g. Mon-Tue-Wed)
+        const nonFriNightClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4] ];
+        shuffle(nonFriNightClusters)[0].forEach(idx => setShift(weeks[otherNightWk][idx], "NIGHT"));
 
-        let fridaysInNights = 0;
-        for (let w = 0; w < 3; w++) {
-          if (shiftData[formatYMD(weeks[w][5])]) fridaysInNights++;
-        }
-        let fridaysNeededInDays = Math.max(1, 3 - fridaysInNights);
-
+        // Day Block: Weeks 3, 4, 5 (Must include exactly 1 Friday day and 1 weekend block)
+        // Weekend block on days: Fri 5, Sat 6, Sun 0 in Week 3 or Week 4 -> covers Friday Day #1
         const dayWkndWk = Math.random() < 0.5 ? 3 : 4;
         const otherDayWk1 = dayWkndWk === 3 ? 4 : 3;
         const otherDayWk2 = 5;
 
         [5, 6, 0].forEach(idx => setShift(weeks[dayWkndWk][idx], "DAY"));
-        fridaysNeededInDays--;
 
-        const dayClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4] ];
-        const shuffledDay = shuffle(dayClusters);
-
-        if (fridaysNeededInDays > 0) {
-          [3, 4, 5].forEach(idx => setShift(weeks[otherDayWk1][idx], "DAY"));
-          shuffledDay[0].forEach(idx => setShift(weeks[otherDayWk2][idx], "DAY"));
-        } else {
-          shuffledDay[0].forEach(idx => setShift(weeks[otherDayWk1][idx], "DAY"));
-          shuffledDay[1].forEach(idx => setShift(weeks[otherDayWk2][idx], "DAY"));
-        }
+        // Remaining two day weeks must NOT use Friday to keep Friday Day count at exactly 1
+        const nonFriDayClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4] ];
+        const shuffledDay = shuffle(nonFriDayClusters);
+        shuffledDay[0].forEach(idx => setShift(weeks[otherDayWk1][idx], "DAY"));
+        shuffledDay[1].forEach(idx => setShift(weeks[otherDayWk2][idx], "DAY"));
 
         autoSyncToCloud();
         render();
@@ -1452,29 +1440,30 @@
         
         matrixEl.innerHTML = "";
 
-        let dayCount = 0, nightCount = 0, pickupDayCount = 0, pickupNightCount = 0, pickup8Count = 0, eduCount = 0, blockedCount = 0, weekendCount = 0, fridayCount = 0;
+        let dayCount = 0, nightCount = 0, pickupDayCount = 0, pickupNightCount = 0, pickup8Count = 0, eduCount = 0, blockedCount = 0, weekendCount = 0;
+        let fridayDayCount = 0, fridayNightCount = 0;
         let totalHours = 0;
 
         dates.forEach((d) => {
           const dateStr = formatYMD(d);
           const dow = d.getDay();
           const isWknd = (dow === 0 || dow === 6);
+          const isFri = (dow === 5);
           const holidayName = HOLIDAYS[dateStr];
           const isPayday = isBiweeklyPayDate(d);
           const entry = shiftData[dateStr];
           const type = entry ? entry.type : "OFF";
 
-          if (type === "DAY") { dayCount++; totalHours += 12; }
-          if (type === "NIGHT") { nightCount++; totalHours += 12; }
-          if (type === "PICKUP_DAY") { pickupDayCount++; totalHours += 12; }
-          if (type === "PICKUP_NIGHT") { pickupNightCount++; totalHours += 12; }
-          if (type === "PICKUP_8") { pickup8Count++; totalHours += 8; }
-          if (type === "EDU") { eduCount++; totalHours += 8; }
+          if (type === "DAY") { dayCount++; totalHours += 12; if (isFri) fridayDayCount++; }
+          if (type === "NIGHT") { nightCount++; totalHours += 12; if (isFri) fridayNightCount++; }
+          if (type === "PICKUP_DAY") { pickupDayCount++; totalHours += 12; if (isFri) fridayDayCount++; }
+          if (type === "PICKUP_NIGHT") { pickupNightCount++; totalHours += 12; if (isFri) fridayNightCount++; }
+          if (type === "PICKUP_8") { pickup8Count++; totalHours += 8; if (isFri) fridayDayCount++; }
+          if (type === "EDU") { eduCount++; totalHours += 8; if (isFri) fridayDayCount++; }
           if (type === "BLOCK") blockedCount++;
           
           if (type !== "OFF" && type !== "BLOCK") {
             if (isWknd) weekendCount++;
-            if (dow === 5) fridayCount++;
           }
 
           let blockHtml = "";
@@ -1512,7 +1501,8 @@
         document.getElementById("statDay").textContent = dayCount;
         document.getElementById("statNight").textContent = nightCount;
         document.getElementById("statWknd").textContent = weekendCount;
-        document.getElementById("statFri").textContent = fridayCount;
+        document.getElementById("statFriDay").textContent = fridayDayCount;
+        document.getElementById("statFriNight").textContent = fridayNightCount;
         document.getElementById("statPickup").textContent = totalPickups;
         document.getElementById("statEdu").textContent = eduCount;
         document.getElementById("statBlocked").textContent = blockedCount;
@@ -1521,7 +1511,8 @@
         updateBadgeStatus("statBadgeDay", dayCount, 9);
         updateBadgeStatus("statBadgeNight", nightCount, 9);
         updateBadgeStatus("statBadgeWknd", weekendCount, 4);
-        updateBadgeStatus("statBadgeFri", fridayCount, 3);
+        updateBadgeStatus("statBadgeFriDay", fridayDayCount, 1);
+        updateBadgeStatus("statBadgeFriNight", fridayNightCount, 2);
 
         renderPayEstimates();
       }
