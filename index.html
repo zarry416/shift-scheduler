@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Shift Schedule Planner & Generator</title>
   
-  <!-- Custom PNG Favicon & iOS App Icons -->
   <link rel="icon" type="image/png" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
 
@@ -109,8 +108,8 @@
     .cv-main-layout { display: flex; flex: 1; overflow: hidden; }
 
     .cv-sidebar {
-      width: 340px;
-      min-width: 310px;
+      width: 345px;
+      min-width: 315px;
       background: var(--cv-panel);
       border-right: 1px solid var(--cv-border);
       display: flex;
@@ -273,12 +272,12 @@
       gap: 6px;
       font-size: 0.72rem;
     }
-    .pay-rates-row {
+    .pay-rates-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 4px;
     }
-    .pay-input-wrap label { font-size: 0.65rem; color: var(--cv-text-muted); display: block; margin-bottom: 2px; }
+    .pay-input-wrap label { font-size: 0.63rem; color: var(--cv-text-muted); display: block; margin-bottom: 2px; }
     .pay-input-wrap input { width: 100%; font-size: 0.72rem; padding: 3px 6px; }
     .pay-period-box {
       background: #11151c;
@@ -598,30 +597,35 @@
         </p>
       </div>
 
+      <!-- Biweekly Payroll & Differential Estimator (MedStar Health Exact Rates) -->
       <div class="pay-card">
         <div class="side-title" style="margin-bottom: 2px; color: #58a6ff;">Biweekly Payroll Estimator</div>
-        <div class="pay-rates-row">
+        <div class="pay-rates-grid">
           <div class="pay-input-wrap">
             <label>Base Rate ($/hr)</label>
-            <input type="number" id="rateBase" value="42.00" step="0.5">
+            <input type="number" id="rateBase" value="41.375" step="0.001">
           </div>
           <div class="pay-input-wrap">
-            <label>Night Diff ($/hr)</label>
-            <input type="number" id="rateNightDiff" value="5.50" step="0.25">
+            <label>Wkday Night (+$/hr)</label>
+            <input type="number" id="rateWkdayNight" value="4.65" step="0.05">
           </div>
           <div class="pay-input-wrap">
-            <label>Wknd Diff ($/hr)</label>
-            <input type="number" id="rateWkndDiff" value="4.00" step="0.25">
+            <label>Wknd Day (+$/hr)</label>
+            <input type="number" id="rateWkndDay" value="5.00" step="0.05">
           </div>
           <div class="pay-input-wrap">
-            <label>Pay Period</label>
-            <select id="payPeriodSelect" style="width: 100%; font-size: 0.72rem; padding: 2px 4px;">
-              <option value="all">Full 6-Wk Cycle</option>
-              <option value="pp1">Pay Period 1</option>
-              <option value="pp2">Pay Period 2</option>
-              <option value="pp3">Pay Period 3</option>
-            </select>
+            <label>Wknd Night (+$/hr)</label>
+            <input type="number" id="rateWkndNight" value="9.65" step="0.05">
           </div>
+        </div>
+        <div class="pay-input-wrap" style="margin-top: 4px;">
+          <label>View Pay Period</label>
+          <select id="payPeriodSelect" style="width: 100%; font-size: 0.72rem; padding: 2px 4px;">
+            <option value="all">Full 6-Wk Cycle</option>
+            <option value="pp1">Pay Period 1</option>
+            <option value="pp2">Pay Period 2</option>
+            <option value="pp3">Pay Period 3</option>
+          </select>
         </div>
         
         <div class="pay-period-box">
@@ -632,10 +636,12 @@
             <strong id="payRegOt">0h / 0h</strong>
             <span>Holiday (1.5x) Hrs:</span>
             <strong id="payHolidayHours">0h ($0)</strong>
-            <span>Night Diff Hours:</span>
-            <strong id="payNightHours">0h ($0)</strong>
-            <span>Weekend Diff Hours:</span>
-            <strong id="payWkndHours">0h ($0)</strong>
+            <span>Wkday Night Diff:</span>
+            <strong id="payWkdayNightHours">0h ($0)</strong>
+            <span>Wknd Day Diff:</span>
+            <strong id="payWkndDayHours">0h ($0)</strong>
+            <span>Wknd Night Diff:</span>
+            <strong id="payWkndNightHours">0h ($0)</strong>
             <span>Est. Base Pay:</span>
             <strong id="payBaseSum">$0</strong>
             <span>Diffs / Prem Pay:</span>
@@ -988,7 +994,7 @@
         });
       });
 
-      ["rateBase", "rateNightDiff", "rateWkndDiff", "payPeriodSelect"].forEach(id => {
+      ["rateBase", "rateWkdayNight", "rateWkndDay", "rateWkndNight", "payPeriodSelect"].forEach(id => {
         document.getElementById(id).addEventListener("input", renderPayEstimates);
       });
 
@@ -1182,7 +1188,6 @@
         render();
       }
 
-      // Generator enforcing: exactly 9 Nights, 9 Days, 4 Weekend, 1 Friday Day, and 2 Friday Nights
       document.getElementById("btnAutoGenerate").onclick = function() {
         const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
@@ -1221,29 +1226,21 @@
           return a;
         }
 
-        // Night Block: Weeks 0, 1, 2 (Must include exactly 2 Friday nights and 1 weekend block)
-        // Weekend block (Fri 5, Sat 6, Sun 0) in Week 0 or Week 1 -> covers Friday Night #1
         const nightWkndWk = Math.random() < 0.5 ? 0 : 1;
         const otherNightWk = nightWkndWk === 0 ? 1 : 0;
         
         [5, 6, 0].forEach(idx => setShift(weeks[nightWkndWk][idx], "NIGHT"));
-
-        // Week 2: Assigned Friday Night #2 via [3, 4, 5] (Wed-Thu-Fri)
         [3, 4, 5].forEach(idx => setShift(weeks[2][idx], "NIGHT"));
 
-        // Remaining night week: clustered weekdays without Friday (e.g. Mon-Tue-Wed)
         const nonFriNightClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4] ];
         shuffle(nonFriNightClusters)[0].forEach(idx => setShift(weeks[otherNightWk][idx], "NIGHT"));
 
-        // Day Block: Weeks 3, 4, 5 (Must include exactly 1 Friday day and 1 weekend block)
-        // Weekend block on days: Fri 5, Sat 6, Sun 0 in Week 3 or Week 4 -> covers Friday Day #1
         const dayWkndWk = Math.random() < 0.5 ? 3 : 4;
         const otherDayWk1 = dayWkndWk === 3 ? 4 : 3;
         const otherDayWk2 = 5;
 
         [5, 6, 0].forEach(idx => setShift(weeks[dayWkndWk][idx], "DAY"));
 
-        // Remaining two day weeks must NOT use Friday to keep Friday Day count at exactly 1
         const nonFriDayClusters = [ [1, 2, 3], [2, 3, 4], [1, 2, 4] ];
         const shuffledDay = shuffle(nonFriDayClusters);
         shuffledDay[0].forEach(idx => setShift(weeks[otherDayWk1][idx], "DAY"));
@@ -1253,12 +1250,14 @@
         render();
       };
 
+      // Accurate Calculations based on MedStar Offer Letter Tiered Rates
       function renderPayEstimates() {
         const cycle = getActiveCycle();
         const dates = getDatesInRange(cycle.start, cycle.end);
         const baseRate = parseFloat(document.getElementById("rateBase").value) || 0;
-        const nightDiff = parseFloat(document.getElementById("rateNightDiff").value) || 0;
-        const wkndDiff = parseFloat(document.getElementById("rateWkndDiff").value) || 0;
+        const wkdayNightDiff = parseFloat(document.getElementById("rateWkdayNight").value) || 0;
+        const wkndDayDiff = parseFloat(document.getElementById("rateWkndDay").value) || 0;
+        const wkndNightDiff = parseFloat(document.getElementById("rateWkndNight").value) || 0;
         const filter = document.getElementById("payPeriodSelect").value;
 
         const payPeriods = [
@@ -1290,8 +1289,9 @@
         let totalRegHours = 0;
         let totalOtHours = 0;
         let totalHolidayHours = 0;
-        let totalNightHours = 0;
-        let totalWkndHours = 0;
+        let totalWkdayNightHours = 0;
+        let totalWkndDayHours = 0;
+        let totalWkndNightHours = 0;
 
         activePeriods.forEach(pp => {
           const wk1Dates = pp.dates.slice(0, 7);
@@ -1313,12 +1313,23 @@
               else if (entry.type === "PICKUP_8" || entry.type === "EDU") hrs = 8;
 
               wkHours += hrs;
-              if (isNight) totalNightHours += hrs;
               if (isHoliday) totalHolidayHours += hrs;
 
-              if (dow === 0) totalWkndHours += hrs;
-              else if (dow === 6) totalWkndHours += hrs;
-              else if (dow === 5 && isNight) totalWkndHours += hrs;
+              // Exact MedStar Differential Windows:
+              // Weekend Nights (+$9.65): Friday night (dow 5) and Saturday night (dow 6)
+              // Weekday Nights (+$4.65): Sunday night through Thursday night (dow 0, 1, 2, 3, 4)
+              // Weekend Days (+$5.00): Saturday day (dow 6) and Sunday day (dow 0)
+              if (isNight) {
+                if (dow === 5 || dow === 6) {
+                  totalWkndNightHours += hrs;
+                } else {
+                  totalWkdayNightHours += hrs;
+                }
+              } else {
+                if (dow === 6 || dow === 0) {
+                  totalWkndDayHours += hrs;
+                }
+              }
             });
 
             if (wkHours > 40) {
@@ -1333,9 +1344,10 @@
         const holidayPremiumPay = totalHolidayHours * (baseRate * 0.5);
         const basePay = totalRegHours * baseRate;
         const otPay = totalOtHours * (baseRate * 1.5);
-        const nightDiffPay = totalNightHours * nightDiff;
-        const wkndDiffPay = totalWkndHours * wkndDiff;
-        const diffAndPremiumSum = otPay + holidayPremiumPay + nightDiffPay + wkndDiffPay;
+        const wkdayNightPay = totalWkdayNightHours * wkdayNightDiff;
+        const wkndDayPay = totalWkndDayHours * wkndDayDiff;
+        const wkndNightPay = totalWkndNightHours * wkndNightDiff;
+        const diffAndPremiumSum = otPay + holidayPremiumPay + wkdayNightPay + wkndDayPay + wkndNightPay;
         const grossEarnings = basePay + diffAndPremiumSum;
 
         if (filter === "all") {
@@ -1348,8 +1360,9 @@
 
         document.getElementById("payRegOt").textContent = `${totalRegHours}h / ${totalOtHours}h`;
         document.getElementById("payHolidayHours").textContent = `${totalHolidayHours}h ($${Math.round(totalHolidayHours * baseRate * 1.5).toLocaleString()})`;
-        document.getElementById("payNightHours").textContent = `${totalNightHours}h ($${Math.round(nightDiffPay).toLocaleString()})`;
-        document.getElementById("payWkndHours").textContent = `${totalWkndHours}h ($${Math.round(wkndDiffPay).toLocaleString()})`;
+        document.getElementById("payWkdayNightHours").textContent = `${totalWkdayNightHours}h ($${Math.round(wkdayNightPay).toLocaleString()})`;
+        document.getElementById("payWkndDayHours").textContent = `${totalWkndDayHours}h ($${Math.round(wkndDayPay).toLocaleString()})`;
+        document.getElementById("payWkndNightHours").textContent = `${totalWkndNightHours}h ($${Math.round(wkndNightPay).toLocaleString()})`;
         document.getElementById("payBaseSum").textContent = `$${Math.round(basePay).toLocaleString()}`;
         document.getElementById("payDiffSum").textContent = `$${Math.round(diffAndPremiumSum).toLocaleString()}`;
         document.getElementById("payTotalGross").textContent = `$${Math.round(grossEarnings).toLocaleString()}`;
